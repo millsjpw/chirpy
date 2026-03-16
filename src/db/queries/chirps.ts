@@ -1,7 +1,7 @@
 import { NotFoundError, UserForbiddenError } from "../../api/errors.js";
 import { db } from "../index.js";
 import { chirps, NewChirp } from "../schema.js";
-import { asc, eq, and } from "drizzle-orm";
+import { asc, eq, desc } from "drizzle-orm";
 
 
 export async function createChirp(chirp: NewChirp) {
@@ -12,16 +12,17 @@ export async function createChirp(chirp: NewChirp) {
     return result;
 }
 
-export async function getAllChirps(authorId?: string) {
+export async function getAllChirps(authorId?: string, sortDirection?: "asc" | "desc") {
+    const orderBy = sortDirection === "desc" ? desc(chirps.createdAt) : asc(chirps.createdAt);
     if (authorId) {
         return await db.select()
             .from(chirps)
             .where(eq(chirps.userId, authorId))
-            .orderBy(asc(chirps.createdAt));
+            .orderBy(orderBy);
     }
     return await db.select()
         .from(chirps)
-        .orderBy(asc(chirps.createdAt));
+        .orderBy(orderBy);
 }
 
 export async function getChirpById(chirpId: string) {
