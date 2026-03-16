@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeAll } from "vitest";
-import { checkPasswordHash, hashPassword, makeJWT, validateJWT } from "./auth.js";
+import { Request } from "express";
+import { checkPasswordHash, hashPassword, makeJWT, validateJWT, extractBearerToken, getAPIKey } from "./auth.js";
 
 describe("Password Hashing", () => {
   const password1 = "correctPassword123!";
@@ -35,5 +36,36 @@ describe("JWT Handling", () => {
   it("should return null for an invalid JWT", () => {
     const invalidToken = token + "invalid";
     expect(() => validateJWT(invalidToken, secret)).toThrowError();
+  });
+});
+
+describe("Bearer Token Extraction", () => {
+  it("should extract the token from a well-formed header", () => {
+    const header = "Bearer myAccessToken";
+    const token = extractBearerToken(header);
+    expect(token).toBe("myAccessToken");
+  });
+
+  it("should throw an error for a malformed header", () => {
+    const malformedHeader = "InvalidHeader myAccessToken";
+    expect(() => extractBearerToken(malformedHeader)).toThrowError();
+  });
+});
+
+// write tests for getAPIKey function
+describe("API Key Retrieval", () => {
+  it("should return the API key from the environment variable", () => {
+    const mockRequest = {
+      get: (header: string) => "ApiKey testApiKey123"
+    } as Request;
+    const apiKey = getAPIKey(mockRequest);
+    expect(apiKey).toBe("testApiKey123");
+  });
+
+  it("should throw an error if the API key is not set", () => {
+    const mockRequest = {
+      get: (header: string) => undefined
+    } as Request;
+    expect(() => getAPIKey(mockRequest)).toThrowError();
   });
 });
