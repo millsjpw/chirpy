@@ -1,6 +1,7 @@
+import { NotFoundError, UserForbiddenError } from "../../api/errors.js";
 import { db } from "../index.js";
 import { chirps, NewChirp } from "../schema.js";
-import { asc, eq } from "drizzle-orm";
+import { asc, eq, and } from "drizzle-orm";
 
 
 export async function createChirp(chirp: NewChirp) {
@@ -26,4 +27,18 @@ export async function getChirpById(chirpId: string) {
 
 export async function deleteAllChirps() {
     await db.delete(chirps);
+}
+
+export async function deleteChirpById(chirpId: string, userId: string) {
+    // get the chirp to see if it exists
+    const chirp = await getChirpById(chirpId);
+    if (!chirp) {
+        throw new NotFoundError(`Chirp with id ${chirpId} not found`);
+    }
+    // only allow users to delete their own chirps
+    if (chirp.userId !== userId) {
+        throw new UserForbiddenError("You do not have permission to delete this chirp");
+    }
+    await db.delete(chirps)
+        .where(eq(chirps.id, chirpId));
 }

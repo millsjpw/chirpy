@@ -1,7 +1,7 @@
 import { Request, Response } from "express";
 import { BadRequestError, NotFoundError } from "./errors.js";
-import { respondWithJSON } from "./json.js";
-import { createChirp, getAllChirps, getChirpById } from "../db/queries/chirps.js";
+import { respondWithError, respondWithJSON } from "./json.js";
+import { createChirp, deleteChirpById, getAllChirps, getChirpById } from "../db/queries/chirps.js";
 import { getBearerToken, validateJWT } from "../auth.js";
 import { config } from "../config.js";
 
@@ -38,6 +38,10 @@ export async function handlerCreateChirp(req: Request, res: Response) {
     const params: parameters = req.body;
 
     const token = getBearerToken(req);
+    if (!token) {
+        respondWithError(res, 401, "Unauthorized");
+        return;
+    }
     const userId = validateJWT(token, config.jwt.secret);
 
     const cleaned = validateChirp(params.body);
@@ -54,13 +58,41 @@ export async function handlerGetAllChirps(_: Request, res: Response) {
 export async function handlerGetChirpById(req: Request, res: Response) {
     const chirpId = req.params.chirpId;
     if (typeof chirpId !== "string") {
-        throw new BadRequestError("Invalid chirp ID");
+        respondWithError(res, 400, "Invalid chirp ID");
+        return;
     }
 
     const chirp = await getChirpById(chirpId.toString());
     if (!chirp) {
-        throw new NotFoundError(`Chirp with chirpId: ${chirpId} not found`);
+        respondWithError(res, 404, `Chirp with chirpId: ${chirpId} not found`);
+        return;
     }
     
     respondWithJSON(res, 200, chirp);
+}
+
+export async function handlerDeleteChirpById(req: Request, res: Response) {
+    const token = getBearerToken(req);
+    const subject = validateJWT(token, config.jwt.secret);
+
+    const chirpId = req.params.chirpId;
+    if (typeof chirpId !== "string") {
+        respondWithError(res, 400, "Invalid chirp ID");
+        return;
+    }
+
+    // only allow users to delete their own chirps, else return 403
+    try {
+        await deleteChirpById(chirpId.toString(), subject);
+    } catch (error) {
+        // if chirp not found, return 404
+        if (error instanceof NotFoundError) {
+            respondWithError(res, 404, `Chirp with chirpId: ${chirpId} not found`);
+            return;
+        }
+        // for any other errors, return 403
+        respondWithError(res, 403, "Forbidden");
+        return;
+    }
+    respondWithJSON(res, 204, { message: `Chirp with id ${chirpId} deleted` });
 }
